@@ -1,0 +1,617 @@
+Install Django:
+pip install django==2.1.1
+
+Create Django project 'mysite' (creates 'mysite' directory):
+django-admin startproject mysite
+
+Change to 'mysite' directory created by this project:
+cd mysite
+
+Ran following in outer /mysite directory:
+python manage.py migrate
+
+Create superuser:
+winpty python manage.py createsuperuser
+(prompts for user name and password)
+
+Create 'polling' application:
+python manage.py startapp polling
+(creates new 'polling' directory)
+
+Initialized git:
+git init
+
+Created .gitignore file:
+*.pyc
+*.db
+*.sqlite3
+
+=========================================================================
+
+Created /mysite/mysite/templates/base.html:
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>My Django Blog</title>
+  </head>
+  <body>
+    <div id="container">
+      <div id="content">
+      {% block content %}
+       [content will go here]
+      {% endblock %}
+      </div>
+    </div>
+  </body>
+</html>
+
+=========================================================================
+
+Updated /mysite/mysite/settings.py:
+Added 'polling' to INSTALLED_APPS section
+Added 'DIRS': [os.path.join(BASE_DIR, 'mysite/templates')], to TEMPLATES section
+
+=========================================================================
+
+Created /mysite/polling/models.py:
+from django.db import models
+
+class Poll(models.Model):
+    title = models.CharField(max_length=128)
+    text = models.TextField(blank=True)
+    score = models.IntegerField(default=0)
+
+    def __str__(self):
+        return self.title
+
+=========================================================================
+
+Ran following in outer /mysite directory:
+python manage.py makemigrations
+python manage.py migrate
+
+=========================================================================
+
+Created /mysite/polling/admin.py:
+from django.contrib import admin
+from polling.models import Poll
+
+admin.site.register(Poll)
+
+=========================================================================
+
+Start up server to go into admin section:
+python manage.py runserver 
+Browse to 'localhost:8000/admin/' and login
+Create polls for users to use
+
+=========================================================================
+
+Created /mysite/polling/templates/polling/list.html:
+{% extends "base.html" %}
+{% block content %}
+<h1>Polls</h1>
+{% for poll in polls %}
+    <div class="poll">
+        <h2>
+            <a href="{% url 'poll_detail' poll.pk %}">{{ poll.title }}</a>
+        </h2>
+    </div>
+{% endfor %}
+{% endblock %}
+
+=========================================================================
+
+Created /mysite/polling/templates/polling/detail.html:
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ poll.title }}</h1>
+<div class="poll-body">
+    {{ poll.text }}
+</div>
+<div class="poll-score">
+    Current score: {{ poll.score }}
+</div>
+<div class="poll-vote">
+    <form method="POST">
+        {% csrf_token %}
+        <input type="submit" name="vote" value="Yes">
+        <input type="submit" name="vote" value="No">
+    </form>
+</div>
+{% endblock %}
+
+=========================================================================
+
+Created /mysite/polling/views.py:
+from django.shortcuts import render
+from django.http import Http404
+from polling.models import Poll
+
+def list_view(request):
+    context = {'polls': Poll.objects.all()}
+    return render(request, 'polling/list.html', context)
+
+def detail_view(request, poll_id):
+    try:
+        poll = Poll.objects.get(pk=poll_id)
+    except Poll.DoesNotExist:
+        raise Http404
+
+    if request.method == "POST":
+        if request.POST.get("vote") == "Yes":
+            poll.score += 1
+        else:
+            poll.score -= 1
+        poll.save()
+
+    context = {'poll': poll}
+    return render(request, 'polling/detail.html', context)
+
+=========================================================================
+
+Created /mysite/mysite/urls.py:
+from django.contrib import admin
+from django.urls import path, include  # <-- Make sure you have both of these imports.
+
+urlpatterns = [
+    path('polling/', include('polling.urls')),  # <-- Add this
+    path('admin/', admin.site.urls),
+]
+
+=========================================================================
+
+Created /mysite/polling/urls.py:
+from django.urls import path
+from polling.views import list_view, detail_view
+
+urlpatterns = [
+    path('', list_view, name="poll_index"),
+    path('polls/<int:poll_id>/', detail_view, name="poll_detail"),
+]
+
+=========================================================================
+
+See it in action:
+python manage.py runserver
+
+Go to browser and access 'localhost:8000/polling/'
+
+=========================================================================
+=========================================================================
+=========================================================================
+=========================================================================
+
+Create the Blogging application:
+python manage.py startapp blogging
+
+=========================================================================
+
+Updated /mysite/mysite/settings.py:
+Added 'blogging' to INSTALLED_APPS section
+
+=========================================================================
+
+Created /mysite/blogging/models.py:
+from django.db import models
+from django.contrib.auth.models import User
+
+class Post(models.Model):
+    title = models.CharField(max_length=128)
+    text = models.TextField(blank=True)
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_date = models.DateTimeField(auto_now=True)
+    published_date = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return self.title
+
+=========================================================================
+
+Ran following in outer /mysite directory:
+python manage.py makemigrations blogging
+python manage.py migrate
+
+=========================================================================
+
+Using shell commands to post blog entries:
+$ python manage.py shell
+>>> from blogging.models import Post
+>>> from django.contrib.auth.models import User
+>>> p1 = Post(title="My First Post", text="Here is the first post")
+>>> p1.save()                       # <--- This won't work because we must have an author from User
+>>> all_users = User.objects.all()  # <--- This will correct the problem...
+>>> p1.author = all_users[0]
+>>> p1.save()                       # <--- Now this works!
+>>> p1.created_date                 # <--- Just to see this was created
+>>> p1.modified_date                # <--- Just to see this was created
+>>> p2 = Post(title="Another post", text="The second one created", author=all_users[0]).save()
+>>> p3 = Post(title="The third one", text="With the word 'heffalump'", author=all_users[0]).save()
+>>> p4 = Post(title="Posters are a great decoration", text="When you are a poor college student", author=all_users[0]).save()
+>>> Post.objects.count()            # <--- Should show 4, but now shows 8
+>>> 
+>>> 
+
+=========================================================================
+
+Using query sets:
+>>> a = Post.objects.all()                   # <-- no query yet
+>>> b = a.filter(title__icontains="post")    # <-- not yet
+>>> c = b.exclude(text__contains="created")  # <-- nope
+>>> [(p.title, p.text) for p in c]           # <-- This will issue the query...
+
+   [('My First Post (updated)', "This is the first post I've written"),
+    ('Posters are a great decoration', 'When you are a poor college student')]
+
+>>> a.count()                                # <-- immediately executes an SQL query
+>>> print(c.query)                           # <-- show the SQL query
+
+Some queries:
+>>> [p.pk for p in Post.objects.all().order_by('created_date')]
+    [1, 2, 3, 4]
+>>> [p.pk for p in Post.objects.all().order_by('-created_date')]
+    [4, 3, 2, 1]
+>>> [p.pk for p in Post.objects.filter(title__contains='post')]
+    [1, 2, 4]
+>>> [p.pk for p in Post.objects.exclude(title__contains='post')]
+    [3]
+>>> qs = Post.objects.exclude(title__contains='post')
+>>> qs = qs.exclude(id__exact=3)
+>>> [p.pk for p in qs]
+    []
+>>> qs = Post.objects.exclude(title__contains='post', id__exact=3)
+>>> [p.pk for p in qs]
+    [1, 2, 3, 4]
+
+Some updates:
+>>> qs = Post.objects.all()
+>>> [p.published_date for p in qs]
+    [None, None, None, None]
+>>> from datetime import datetime
+>>> from django.utils import timezone
+>>> now = timezone.now()
+>>> qs.update(published_date=now)
+    4
+>>> [p.published_date for p in qs]
+
+   [datetime.datetime(2017, 11, 5, 0, 43, 58, 844772, tzinfo=<UTC>),
+    datetime.datetime(2017, 11, 5, 0, 43, 58, 844772, tzinfo=<UTC>),
+    datetime.datetime(2017, 11, 5, 0, 43, 58, 844772, tzinfo=<UTC>),
+    datetime.datetime(2017, 11, 5, 0, 43, 58, 844772, tzinfo=<UTC>)]
+
+=========================================================================
+=========================================================================
+=========================================================================
+
+Changed /mysite/blogging/admin.py:
+from django.contrib import admin
+from blogging.models import Post
+
+admin.site.register(Post)
+
+=========================================================================
+
+Created /mysite/blogging/fixtures directory and installed blogging_test_fixture.json file
+
+=========================================================================
+
+Created /mysite/blogging/tests.py:
+from django.test import TestCase
+from django.contrib.auth.models import User
+from blogging.models import Post
+
+class PostTestCase(TestCase):
+    fixtures = ['blogging_test_fixture.json', ]
+
+    def setUp(self):
+        self.user = User.objects.get(pk=1)
+        
+    def test_string_representation(self):
+        expected = "This is a title"
+        p1 = Post(title=expected)
+        actual = str(p1)
+        self.assertEqual(expected, actual)
+
+=========================================================================
+
+Run this test:
+python manage.py test blogging
+
+=========================================================================
+=========================================================================
+=========================================================================
+=========================================================================
+=========================================================================
+=========================================================================
+=========================================================================
+=========================================================================
+=========================================================================
+=========================================================================
+
+LESSON 7 Additions:
+
+Updated /mysite/blogging/models.py to add new Category class:
+class Category(models.Model):
+    name = models.CharField(max_length=128)
+    description = models.TextField(blank=True)
+    posts = models.ManyToManyField(Post, blank=True, related_name='categories')
+
+=========================================================================
+
+Ran following in outer /mysite directory:
+python manage.py makemigrations
+python manage.py migrate
+
+=========================================================================
+
+Updated /mysite/blogging/admin.py for Category (2 places):
+from django.contrib import admin
+from blogging.models import Post, Category
+
+admin.site.register(Post)
+admin.site.register(Category)
+
+=========================================================================
+
+run 'python manage.py runserver' and browse to 'localhost:8000/admin/'
+Create the categories that make sense according to the existing blog posts
+
+=========================================================================
+
+Update /mysite/blogging/tests.py:
+from blogging.models import Post, Category # <--- Added 'Category'
+
+...and added this new class:	
+class CategoryTestCase(TestCase):
+    def test_string_representation(self):
+        expected = "A Category"
+        c1 = Category(name=expected)
+        actual = str(c1)
+        self.assertEqual(expected, actual)
+
+NOTE:  This test will FAIL until following update below...
+
+=========================================================================
+
+Added this to /mysite/blogging/models.py new Category class:
+def __str__(self):
+        return self.name
+
+NOTE:  This test will now PASS...and the Category names will show up in browser Admin
+
+=========================================================================
+
+The Admin page shows 'Categorys'.  This will change that to 'Categories' by
+adding this to /mysite/blogging/models.py new Category class:
+    class Meta:
+        verbose_name_plural = 'Categories'
+
+=========================================================================
+
+Added this to /mysite/blogging/views.py:
+from django.http import HttpResponse, HttpResponseRedirect, Http404
+
+def stub_view(request, *args, **kwargs):
+    body = "Stub View\n\n"
+    if args:
+        body += "Args:\n"
+        body += "\n".join(["\t%s" % a for a in args])
+    if kwargs:
+        body += "Kwargs:\n"
+        body += "\n".join(["\t%s: %s" % i for i in kwargs.items()])
+    return HttpResponse(body, content_type="text/plain")
+
+=========================================================================
+
+Created /mysite/blogging/urls.py:
+from django.urls import path
+from blogging.views import stub_view
+
+urlpatterns = [
+    path('', stub_view, name="blog_index"),
+]
+
+=========================================================================
+
+Added to /mysite/mysite/urls.py urlpatterns section:	
+path('', include('blogging.urls')),
+
+=========================================================================
+
+Added to /mysite/blogging/urls.py:
+path('posts/<int:post_id>/', stub_view, name="blog_detail"),
+
+=========================================================================
+
+Update /mysite/blogging/tests.py:
+Added at top...
+import datetime
+from django.utils.timezone import utc
+
+Added below...
+class FrontEndTestCase(TestCase):
+    """test views provided in the front-end"""
+    fixtures = ['blogging_test_fixture.json', ]
+
+    def setUp(self):
+        self.now = datetime.datetime.utcnow().replace(tzinfo=utc)
+        self.timedelta = datetime.timedelta(15)
+        author = User.objects.get(pk=1)
+        for count in range(1, 11):
+            post = Post(title="Post %d Title" % count,
+                        text="foo",
+                        author=author)
+            if count < 6:
+                # publish the first five posts
+                pubdate = self.now - self.timedelta * count
+                post.published_date = pubdate
+            post.save()
+
+    def test_list_only_published(self):
+        resp = self.client.get('/')
+        # the content of the rendered response is always a bytestring
+        resp_text = resp.content.decode(resp.charset)
+        self.assertTrue("Recent Posts" in resp_text)
+        for count in range(1, 11):
+            title = "Post %d Title" % count
+            if count < 6:
+                self.assertContains(resp, title, count=1)
+            else:
+                self.assertNotContains(resp, title)
+
+=========================================================================
+
+Update /mysite/blogging/views.py:
+# add these imports
+from django.template import loader
+from blogging.models import Post
+
+# and this view
+def list_view(request):
+    published = Post.objects.exclude(published_date__exact=None)
+    posts = published.order_by('-published_date')
+    template = loader.get_template('blogging/list.html')
+    context = {'posts': posts}
+    body = template.render(context)
+    return HttpResponse(body, content_type="text/html")
+
+=========================================================================
+
+Created /mysite/blogging/templates/blogging/list.html:
+{% extends "base.html" %}{% block content %}
+  <h1>Recent Posts</h1>
+  {% comment %} here is where the query happens {% endcomment %}
+  {% for post in posts %}
+  <div class="post">
+    <h2>{{ post }}</h2>
+    <p class="byline">
+      Posted by {{ post.author.username }} &mdash; {{ post.published_date }}
+    </p>
+    <div class="post-body">
+      {{ post.text }}
+    </div>
+    <ul class="categories">
+      {% for category in post.categories.all %}
+        <li>{{ category }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endfor %}
+{% endblock %}
+
+=========================================================================
+
+Changed /mysite/blogging/urls.py from:
+from django.urls import path
+from blogging.views import stub_view
+
+urlpatterns = [
+    path('', stub_view, name="blog_index"),
+    path('posts/<int:post_id>/', stub_view, name="blog_detail"),
+]
+
+to:
+from django.urls import path
+from blogging.views import list_view
+
+urlpatterns = [
+    path('', list_view, name="blog_index"),
+    path('posts/<int:post_id>/', list_view, name="blog_detail"),
+]
+
+=========================================================================
+
+Changed /mysite/blogging/views.py from:
+def list_view(request):
+    published = Post.objects.exclude(published_date__exact=None)
+    posts = published.order_by('-published_date')
+    template = loader.get_template('blogging/list.html')
+    context = {'posts': posts}
+    body = template.render(context)
+    return HttpResponse(body, content_type="text/html")
+
+to:
+def list_view(request):
+    published = Post.objects.exclude(published_date__exact=None)
+    posts = published.order_by('-published_date')
+    context = {'posts': posts}
+    return render(request, 'list.html', context)
+
+NOTE:  This did not work and broke things!
+
+had to change last line from:
+return render(request, 'list.html', context)
+
+to:
+return render(request, 'blogging/list.html', context)
+
+=========================================================================
+
+Added the following test to our FrontEndTestCase in blogging/tests.py:
+    def test_details_only_published(self):
+        for count in range(1, 11):
+            title = "Post %d Title" % count
+            post = Post.objects.get(title=title)
+            resp = self.client.get('/posts/%d/' % post.pk)
+            if count < 6:
+                self.assertEqual(resp.status_code, 200)
+                self.assertContains(resp, title)
+            else:
+                self.assertEqual(resp.status_code, 404)
+
+=========================================================================
+
+Added to /mysite/blogging/views.py:
+def detail_view(request, post_id):
+    published = Post.objects.exclude(published_date__exact=None)
+    try:
+        post = published.get(pk=post_id)
+    except Post.DoesNotExist:
+        raise Http404
+    context = {'post': post}
+    return render(request, 'blogging/detail.html', context)
+
+=========================================================================
+
+Changed /mysite/blogging/urls.py from:
+path('posts/<int:post_id>/', list_view, name="blog_detail"),
+
+To:
+path('posts/<int:post_id>/', detail_view, name="blog_detail"),
+
+=========================================================================
+
+Added detail.html to blogging/templates/blogging/:
+{% extends "base.html" %}
+
+{% block content %}
+<a class="backlink" href="/">Home</a>
+<h1>{{ post }}</h1>
+<p class="byline">
+  Posted by {{ post.author.username }} &mdash; {{ post.published_date }}
+</p>
+<div class="post-body">
+  {{ post.text }}
+</div>
+<ul class="categories">
+  {% for category in post.categories.all %}
+    <li>{{ category }}</li>
+  {% endfor %}
+</ul>
+{% endblock %}
+
+=========================================================================
+
+Changed blogging/list.html template from:
+<h2>{{ post }}</h2>
+
+To:
+    <h2>
+      <a href="{% url 'blog_detail' post.pk %}">{{ post }}</a>
+    </h2>
+
+=========================================================================
+
+Added import of 'detail_view' to blogging/urls.py:
+from blogging.views import list_view, detail_view
